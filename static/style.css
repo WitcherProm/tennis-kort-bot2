@@ -1,0 +1,220 @@
+/* Базовые стили */
+:root {
+    --primary-color: #007bff;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+    --light-color: #f8f9fa;
+    --dark-color: #343a40;
+    --border-radius: 8px;
+    --box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Утилиты */
+.hidden { display: none !important; }
+.text-center { text-align: center; }
+
+/* Контейнеры */
+#content {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    overflow: hidden;
+}
+
+header {
+    background: var(--primary-color);
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+/* Загрузка */
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: white;
+}
+
+/* Информация о пользователе */
+.user-info {
+    background: var(--light-color);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin: 15px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Табы */
+.tabs {
+    display: flex;
+    background: var(--light-color);
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tab {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+.tab-content {
+    padding: 20px;
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Кнопки */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: white;
+}
+
+.btn-small {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+/* Выбор корта */
+.court-buttons {
+    display: flex;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.court-button {
+    flex: 1;
+    padding: 15px;
+    border: 2px solid var(--primary-color);
+    background: white;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.court-button.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Слоты */
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.slot {
+    padding: 15px;
+    border-radius: var(--border-radius);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.slot.available {
+    background: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.slot.booked {
+    background: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+    cursor: not-allowed;
+}
+
+.slot:hover.available {
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow);
+}
+
+/* Сообщения */
+.error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin: 15px;
+    border-left: 4px solid var(--danger-color);
+}
+
+.success {
+    background: #d1ecf1;
+    color: #0c5460;
+    padding: 15px;
+    border-radius: var(--border-radius);
+    margin: 15px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .slots-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .tabs {
+        flex-direction: column;
+    }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content.active {
+    animation: fadeIn 0.3s ease;
+}

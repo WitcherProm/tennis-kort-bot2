@@ -1,9 +1,11 @@
 import sqlite3
+import os
 from datetime import datetime
 
-
 class Database:
-    def __init__(self, db_path="tennis_booking.db"):
+    def __init__(self, db_path="/data/tennis_booking.db"):
+        # Используем /data/ который сохраняется между деплоями
+        os.makedirs('/data', exist_ok=True)
         self.db_path = db_path
         self.init_database()
 
@@ -42,7 +44,6 @@ class Database:
 
         conn.commit()
         conn.close()
-
 
 # Создаем базу данных
 db = Database()

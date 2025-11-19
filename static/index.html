@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Запись на теннисный корт</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="loading" class="loading">
+        <h2>🎾 Загружаем расписание...</h2>
+        <p>Пожалуйста, подождите</p>
+    </div>
+
+    <div id="content" class="hidden">
+        <header>
+            <h1>🎾 Запись на теннисный корт</h1>
+            <div id="user-info" class="user-info hidden">
+                Добро пожаловать, <span id="user-name">Гость</span>!
+                <button onclick="app.resetUser()" class="btn-small">Сбросить</button>
+            </div>
+        </header>
+
+        <div id="error-message" class="error hidden"></div>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="booking">Записаться</button>
+            <button class="tab" data-tab="my-bookings">Мои записи</button>
+        </nav>
+
+        <main>
+            <div id="booking-tab" class="tab-content active">
+                <!-- Содержимое вкладки записи -->
+            </div>
+
+            <div id="my-bookings-tab" class="tab-content">
+                <!-- Содержимое вкладки моих записей -->
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>

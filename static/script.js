@@ -32,66 +32,106 @@ class TennisBookingApp {
     }
 
     async initUser() {
-    console.log('👤 Initializing user...');
-    
-    try {
-        // ПЕРВОЕ: Пробуем получить пользователя из Telegram WebApp
-        if (window.Telegram && window.Telegram.WebApp) {
-            console.log('✅ Telegram WebApp detected');
-            const tg = window.Telegram.WebApp;
+        console.log('👤 Initializing user...');
+        
+        try {
+            // ДЕТАЛЬНАЯ ПРОВЕРКА TELEGRAM WEBAPP
+            console.log('🔍 Checking Telegram WebApp environment...');
+            console.log('window.Telegram:', window.Telegram);
+            console.log('window.Telegram.WebApp:', window.Telegram?.WebApp);
             
-            // Инициализируем WebApp
-            tg.ready();
-            tg.expand(); // Раскрываем на весь экран
+            if (window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp;
+                console.log('✅ Telegram WebApp detected');
+                console.log('WebApp version:', tg.version);
+                console.log('Platform:', tg.platform);
+                console.log('InitData:', tg.initData);
+                console.log('InitDataUnsafe:', tg.initDataUnsafe);
+                
+                // Инициализируем WebApp
+                tg.ready();
+                tg.expand(); // Раскрываем на весь экран
+                tg.enableClosingConfirmation(); // Подтверждение закрытия
+                
+                // Проверяем данные пользователя
+                if (tg.initDataUnsafe?.user) {
+                    const tgUser = tg.initDataUnsafe.user;
+                    console.log('📱 Telegram User found:', tgUser);
+                    
+                    this.currentUser = {
+                        id: tgUser.id,
+                        first_name: tgUser.first_name || 'Игрок',
+                        username: tgUser.username || '',
+                        last_name: tgUser.last_name || '',
+                        language_code: tgUser.language_code || 'ru',
+                        is_telegram_user: true
+                    };
+                    
+                    console.log('💾 Saving Telegram user to localStorage');
+                    localStorage.setItem('telegramUser', JSON.stringify(this.currentUser));
+                    this.showUserInfo(this.currentUser);
+                    return true;
+                } else {
+                    console.log('⚠️ Telegram WebApp detected but no user data');
+                    // Показываем информацию о том, что мы в Telegram
+                    this.showTelegramInfo();
+                }
+            } else {
+                console.log('🌐 Regular browser environment');
+            }
             
-            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                const tgUser = tg.initDataUnsafe.user;
-                console.log('📱 User from Telegram:', tgUser);
+            // ПРОВЕРЯЕМ LOCALSTORAGE (для гостей)
+            const savedUser = localStorage.getItem('telegramUser');
+            if (savedUser) {
+                this.currentUser = JSON.parse(savedUser);
+                console.log('📁 User from localStorage:', this.currentUser);
                 
-                this.currentUser = {
-                    id: tgUser.id,
-                    first_name: tgUser.first_name || 'Telegram User',
-                    username: tgUser.username || '',
-                    last_name: tgUser.last_name || '',
-                    language_code: tgUser.language_code || 'ru'
-                };
+                // Если это Telegram пользователь, но открыли в браузере
+                if (this.currentUser.is_telegram_user) {
+                    console.log('ℹ️ Telegram user opened in browser');
+                }
                 
-                localStorage.setItem('telegramUser', JSON.stringify(this.currentUser));
                 this.showUserInfo(this.currentUser);
                 return true;
             }
-        }
-        
-        // ВТОРОЕ: Проверяем localStorage
-        const savedUser = localStorage.getItem('telegramUser');
-        if (savedUser) {
-            this.currentUser = JSON.parse(savedUser);
-            console.log('📁 User from localStorage:', this.currentUser);
+            
+            // СОЗДАЕМ ГОСТЯ
+            console.log('👤 Creating guest user');
+            this.currentUser = { 
+                id: Math.floor(Math.random() * 1000000), 
+                first_name: 'Гость',
+                is_telegram_user: false
+            };
+            localStorage.setItem('telegramUser', JSON.stringify(this.currentUser));
+            this.showUserInfo(this.currentUser);
+            return true;
+            
+        } catch (error) {
+            console.error('❌ Error in initUser:', error);
+            // Резервный вариант
+            this.currentUser = { 
+                id: Math.floor(Math.random() * 1000000), 
+                first_name: 'Гость',
+                is_telegram_user: false
+            };
             this.showUserInfo(this.currentUser);
             return true;
         }
-        
-        // ТРЕТЬЕ: Создаем гостя (только если не Telegram)
-        console.log('👤 Creating guest user');
-        this.currentUser = { 
-            id: Math.floor(Math.random() * 1000000), 
-            first_name: 'Гость'
-        };
-        localStorage.setItem('telegramUser', JSON.stringify(this.currentUser));
-        this.showUserInfo(this.currentUser);
-        return true;
-        
-    } catch (error) {
-        console.error('Error in initUser:', error);
-        // Резервный вариант
-        this.currentUser = { 
-            id: Math.floor(Math.random() * 1000000), 
-            first_name: 'Гость'
-        };
-        this.showUserInfo(this.currentUser);
-        return true;
     }
-}
+
+    // Этот метод ДОЛЖЕН быть внутри класса!
+    showTelegramInfo() {
+        console.log('🔔 Showing Telegram info');
+        const userInfo = document.getElementById('user-info');
+        if (userInfo) {
+            userInfo.innerHTML = `
+                Добро пожаловать! <strong>Telegram User</strong>
+                <br><small>Открыто через Telegram WebApp</small>
+                <button onclick="app.resetUser()" class="btn-small">Сбросить</button>
+            `;
+            userInfo.classList.remove('hidden');
+        }
+    }
 
     setupEventListeners() {
         console.log('🔧 Setting up event listeners...');

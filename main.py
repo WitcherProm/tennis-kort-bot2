@@ -40,45 +40,52 @@ async def read_root():
 # API endpoints остаются без изменений
 @app.get("/api/slots")
 async def get_slots(date: str = Query(...)):
-    conn = database.db.get_connection()
-    cursor = conn.cursor()
+    try:
+        print(f"📅 Getting slots for date: {date}")
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
 
-    time_slots = generate_time_slots()
-    court_types = ['rubber', 'hard']
-    slots = []
+        time_slots = generate_time_slots()
+        court_types = ['rubber', 'hard']
+        slots = []
 
-    for court_type in court_types:
-        for time_slot in time_slots:
-            cursor.execute('''
-                SELECT b.id, u.first_name 
-                FROM bookings b 
-                LEFT JOIN users u ON b.user_id = u.user_id 
-                WHERE b.court_type = ? AND b.date = ? AND b.time_slot = ?
-            ''', (court_type, date, time_slot))
+        for court_type in court_types:
+            for time_slot in time_slots:
+                cursor.execute('''
+                    SELECT b.id, u.first_name 
+                    FROM bookings b 
+                    LEFT JOIN users u ON b.user_id = u.user_id 
+                    WHERE b.court_type = ? AND b.date = ? AND b.time_slot = ?
+                ''', (court_type, date, time_slot))
 
-            booking = cursor.fetchone()
+                booking = cursor.fetchone()
 
-            if booking:
-                slots.append({
-                    "court_type": court_type,
-                    "date": date,
-                    "time_slot": time_slot,
-                    "is_available": False,
-                    "booked_by": booking['first_name'],
-                    "booking_id": booking['id']
-                })
-            else:
-                slots.append({
-                    "court_type": court_type,
-                    "date": date,
-                    "time_slot": time_slot,
-                    "is_available": True,
-                    "booked_by": None,
-                    "booking_id": None
-                })
+                if booking:
+                    slots.append({
+                        "court_type": court_type,
+                        "date": date,
+                        "time_slot": time_slot,
+                        "is_available": False,
+                        "booked_by": booking['first_name'],
+                        "booking_id": booking['id']
+                    })
+                else:
+                    slots.append({
+                        "court_type": court_type,
+                        "date": date,
+                        "time_slot": time_slot,
+                        "is_available": True,
+                        "booked_by": None,
+                        "booking_id": None
+                    })
 
-    conn.close()
-    return slots
+        conn.close()
+        print(f"✅ Returned {len(slots)} slots")
+        return slots
+        
+    except Exception as e:
+        print(f"❌ Error in /api/slots: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/book")
 async def create_booking(booking_data: dict):
@@ -156,4 +163,5 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

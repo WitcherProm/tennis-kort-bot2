@@ -3,46 +3,96 @@ class TennisBookingApp {
         this.currentCourt = 'rubber';
         this.currentUser = null;
         this.isInitialized = false;
-        this.init();
     }
 
     async init() {
+        console.log('🚀 Starting app initialization...');
         try {
             this.showLoading();
-            await this.initTelegramUser();
+            
+            // 1. Инициализируем пользователя (упрощенная версия)
+            await this.initUser();
+            
+            // 2. Настраиваем обработчики событий
             this.setupEventListeners();
+            
+            // 3. Загружаем слоты
             await this.loadSlots();
+            
+            // 4. Показываем интерфейс
             this.hideLoading();
             this.isInitialized = true;
             console.log('✅ App initialized successfully');
+            
         } catch (error) {
             console.error('❌ App initialization failed:', error);
-            this.showError('Ошибка загрузки. Пожалуйста, обновите страницу.');
             this.hideLoading();
+            this.showError('Ошибка загрузки. Пожалуйста, обновите страницу.');
         }
     }
 
+    async initUser() {
+        console.log('👤 Initializing user...');
+        
+        // Простая инициализация пользователя
+        const savedUser = localStorage.getItem('telegramUser');
+        if (savedUser) {
+            this.currentUser = JSON.parse(savedUser);
+            console.log('📁 User from localStorage:', this.currentUser);
+        } else {
+            // Создаем гостя
+            this.currentUser = { 
+                id: Math.floor(Math.random() * 1000000), 
+                first_name: 'Гость'
+            };
+            localStorage.setItem('telegramUser', JSON.stringify(this.currentUser));
+            console.log('👤 Created guest user:', this.currentUser);
+        }
+        
+        this.showUserInfo(this.currentUser);
+        return true;
+    }
+
     setupEventListeners() {
+        console.log('🔧 Setting up event listeners...');
+        
         // Табы
         document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', (e) => this.showTab(e.target.dataset.tab));
+            tab.addEventListener('click', (e) => {
+                this.showTab(e.target.dataset.tab);
+            });
         });
 
         // Выбор корта
         document.querySelectorAll('.court-button').forEach(btn => {
-            btn.addEventListener('click', (e) => this.selectCourt(e.target.dataset.court));
+            btn.addEventListener('click', (e) => {
+                this.selectCourt(e.target.dataset.court);
+            });
         });
 
         // Выбор даты
-        document.getElementById('date-picker').addEventListener('change', () => this.loadSlots());
+        const datePicker = document.getElementById('date-picker');
+        if (datePicker) {
+            datePicker.addEventListener('change', () => this.loadSlots());
+            // Устанавливаем сегодняшнюю дату
+            datePicker.value = new Date().toISOString().split('T')[0];
+        }
     }
 
-    async initTelegramUser() {
-        // Сохраненная логика инициализации пользователя
-        // ... (ваш существующий код)
+    showUserInfo(user) {
+        try {
+            const userName = user.first_name;
+            document.getElementById('user-name').textContent = userName;
+            document.getElementById('user-info').classList.remove('hidden');
+            console.log(`👤 User info shown: ${userName}`);
+        } catch (error) {
+            console.error('Error showing user info:', error);
+        }
     }
 
     showTab(tabName) {
+        console.log(`📑 Switching to tab: ${tabName}`);
+        
         if (!this.isInitialized) return;
 
         // Обновляем активные табы
@@ -58,6 +108,7 @@ class TennisBookingApp {
     }
 
     selectCourt(court) {
+        console.log(`🎾 Selected court: ${court}`);
         this.currentCourt = court;
         document.querySelectorAll('.court-button').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`[data-court="${court}"]`).classList.add('active');
@@ -65,23 +116,38 @@ class TennisBookingApp {
     }
 
     async loadSlots() {
+        console.log('📅 Loading slots...');
         const date = document.getElementById('date-picker').value;
-        if (!date) return;
+        if (!date) {
+            console.log('❌ No date selected');
+            return;
+        }
 
         try {
+            console.log(`📋 Fetching slots for date: ${date}`);
             const response = await fetch(`/api/slots?date=${date}`);
-            if (!response.ok) throw new Error('Network error');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const slots = await response.json();
+            console.log(`✅ Loaded ${slots.length} slots`);
             this.renderSlots(slots);
+            
         } catch (error) {
-            console.error('Error loading slots:', error);
-            this.showError('Ошибка загрузки расписания');
+            console.error('❌ Error loading slots:', error);
+            this.showError('Ошибка загрузки расписания: ' + error.message);
         }
     }
 
     renderSlots(slots) {
         const container = document.getElementById('slots-container');
+        if (!container) {
+            console.error('❌ slots-container not found');
+            return;
+        }
+        
         container.innerHTML = '<h3>Доступные слоты:</h3>';
         
         const grid = document.createElement('div');
@@ -90,6 +156,13 @@ class TennisBookingApp {
         const courtSlots = slots
             .filter(slot => slot.court_type === this.currentCourt)
             .sort((a, b) => a.time_slot.localeCompare(b.time_slot));
+
+        console.log(`🎯 Filtered ${courtSlots.length} slots for court: ${this.currentCourt}`);
+
+        if (courtSlots.length === 0) {
+            container.innerHTML = '<p>Нет доступных слотов для выбранной даты</p>';
+            return;
+        }
 
         courtSlots.forEach(slot => {
             const slotElement = this.createSlotElement(slot);
@@ -105,8 +178,10 @@ class TennisBookingApp {
         
         const [start, end] = slot.time_slot.split('-');
         slotElement.innerHTML = `
-            ${start}<br>${end}
-            <br><small>${slot.is_available ? 'Свободно' : 'Занято: ' + slot.booked_by}</small>
+            <strong>${start}-${end}</strong>
+            <br>
+            <small>${slot.is_available ? '🟢 Свободно' : '🔴 Занято'}</small>
+            ${!slot.is_available ? `<br><small>${slot.booked_by || 'Кем-то'}</small>` : ''}
         `;
 
         if (slot.is_available) {
@@ -139,10 +214,10 @@ class TennisBookingApp {
 
             const result = await response.json();
             if (result.success) {
-                this.showSuccess('Успешно записаны!');
+                this.showSuccess('✅ Успешно записаны!');
                 this.loadSlots();
             } else {
-                this.showError('Ошибка: ' + result.detail);
+                this.showError('❌ Ошибка: ' + result.detail);
             }
         } catch (error) {
             console.error('Error booking slot:', error);
@@ -150,15 +225,71 @@ class TennisBookingApp {
         }
     }
 
+    async loadMyBookings() {
+        if (!this.currentUser) {
+            this.showError('Пожалуйста, войдите в систему');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/my-bookings?user_id=' + this.currentUser.id);
+            const bookings = await response.json();
+
+            const container = document.getElementById('bookings-list');
+            container.innerHTML = '';
+
+            if (bookings.length === 0) {
+                container.innerHTML = '<p>У вас нет активных записей</p>';
+                return;
+            }
+
+            bookings.forEach(booking => {
+                const bookingElement = document.createElement('div');
+                bookingElement.className = 'slot';
+                bookingElement.innerHTML = `
+                    <strong>${booking.date}</strong><br>
+                    ${booking.time_slot.replace('-', ' - ')} 
+                    (${booking.court_type === 'rubber' ? 'Резиновый' : 'Хард'})
+                    <button onclick="app.cancelBooking(${booking.id})" class="btn-small btn-danger" style="margin-left: 10px;">Отменить</button>
+                `;
+                container.appendChild(bookingElement);
+            });
+        } catch (error) {
+            console.error('Error loading bookings:', error);
+            this.showError('Ошибка загрузки записей');
+        }
+    }
+
+    async cancelBooking(bookingId) {
+        if (!confirm('Отменить запись?')) return;
+
+        try {
+            const response = await fetch('/api/booking/' + bookingId + '?user_id=' + this.currentUser.id, {
+                method: 'DELETE'
+            });
+
+            const result = await response.json();
+            this.showSuccess(result.message);
+            this.loadMyBookings();
+        } catch (error) {
+            console.error('Error canceling booking:', error);
+            this.showError('Ошибка при отмене записи');
+        }
+    }
+
     // Вспомогательные методы
     showLoading() {
-        document.getElementById('loading').classList.remove('hidden');
-        document.getElementById('content').classList.add('hidden');
+        const loading = document.getElementById('loading');
+        const content = document.getElementById('content');
+        if (loading) loading.classList.remove('hidden');
+        if (content) content.classList.add('hidden');
     }
 
     hideLoading() {
-        document.getElementById('loading').classList.add('hidden');
-        document.getElementById('content').classList.remove('hidden');
+        const loading = document.getElementById('loading');
+        const content = document.getElementById('content');
+        if (loading) loading.classList.add('hidden');
+        if (content) content.classList.remove('hidden');
     }
 
     showError(message) {
@@ -171,26 +302,38 @@ class TennisBookingApp {
 
     showMessage(message, type) {
         const messageDiv = document.getElementById('error-message');
-        messageDiv.textContent = message;
-        messageDiv.className = type;
-        messageDiv.classList.remove('hidden');
-        
-        setTimeout(() => {
-            messageDiv.classList.add('hidden');
-        }, 5000);
+        if (messageDiv) {
+            messageDiv.textContent = message;
+            messageDiv.className = type;
+            messageDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 5000);
+        }
     }
 
     resetUser() {
         localStorage.removeItem('telegramUser');
         this.currentUser = null;
-        document.getElementById('user-info').classList.add('hidden');
+        const userInfo = document.getElementById('user-info');
+        if (userInfo) userInfo.classList.add('hidden');
         setTimeout(() => location.reload(), 100);
     }
-
-    // ... остальные методы (loadMyBookings, cancelBooking и т.д.)
 }
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded, initializing app...');
     window.app = new TennisBookingApp();
+    window.app.init();
 });
+
+// Резервная инициализация
+setTimeout(() => {
+    if (!window.app || !window.app.isInitialized) {
+        console.log('🕒 Backup initialization');
+        window.app = new TennisBookingApp();
+        window.app.init();
+    }
+}, 3000);

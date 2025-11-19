@@ -30,11 +30,21 @@
 
         <main>
             <div id="booking-tab" class="tab-content active">
-                <!-- Содержимое вкладки записи -->
+                <h3>Выберите дату:</h3>
+                <input type="date" id="date-picker">
+                
+                <h3>Выберите корт:</h3>
+                <div class="court-buttons">
+                    <button class="court-button active" data-court="rubber">Резиновый</button>
+                    <button class="court-button" data-court="hard">Хард</button>
+                </div>
+                
+                <div id="slots-container"></div>
             </div>
 
             <div id="my-bookings-tab" class="tab-content">
-                <!-- Содержимое вкладки моих записей -->
+                <h3>Мои записи:</h3>
+                <div id="bookings-list"></div>
             </div>
         </main>
     </div>

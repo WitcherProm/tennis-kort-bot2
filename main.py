@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -227,8 +228,9 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
     conn.close()
 
     return {"success": True, "message": "Запись отменена"}
-    
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+
+    if __name__ == "__main__":
+        port = int(os.getenv("PORT", 8080))
+        uvicorn.run(app, host="0.0.0.0", port=port)
 
 

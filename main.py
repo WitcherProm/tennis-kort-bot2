@@ -127,7 +127,7 @@ async def get_slots(date: str = Query(...)):
                 SELECT b.id, u.first_name 
                 FROM bookings b 
                 LEFT JOIN users u ON b.user_id = u.user_id 
-                WHERE b.court_type = ? AND b.date = ? AND b.time_slot = ?
+                WHERE b.court_type = %s AND b.date = %s AND b.time_slot = %s
             ''', (court_type, date, time_slot))
 
             booking = cursor.fetchone()
@@ -161,7 +161,7 @@ async def create_booking(booking_data: dict):
 
     # Проверяем запись на этот день
     cursor.execute(
-        'SELECT id FROM bookings WHERE user_id = ? AND date = ?',
+        'SELECT id FROM bookings WHERE user_id = %s AND date = %s',
         (booking_data['user_id'], booking_data['date'])
     )
     if cursor.fetchone():
@@ -169,7 +169,7 @@ async def create_booking(booking_data: dict):
 
     # Проверяем свободен ли слот
     cursor.execute(
-        'SELECT id FROM bookings WHERE court_type = ? AND date = ? AND time_slot = ?',
+        'SELECT id FROM bookings WHERE court_type = %s AND date = %s AND time_slot = %s',
         (booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
     )
     if cursor.fetchone():
@@ -177,13 +177,13 @@ async def create_booking(booking_data: dict):
 
     # Сохраняем пользователя
     cursor.execute(
-        'INSERT OR IGNORE INTO users (user_id, first_name) VALUES (?, ?)',
+        'INSERT OR IGNORE INTO users (user_id, first_name) VALUES (%s, %s)',
         (booking_data['user_id'], booking_data['first_name'])
     )
 
     # Создаем запись
     cursor.execute(
-        'INSERT INTO bookings (user_id, court_type, date, time_slot) VALUES (?, ?, ?, ?)',
+        'INSERT INTO bookings (user_id, court_type, date, time_slot) VALUES (%s, %s, %s, %s)',
         (booking_data['user_id'], booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
     )
 
@@ -200,7 +200,7 @@ async def get_my_bookings(user_id: int = Query(...)):
     cursor.execute('''
         SELECT id, court_type, date, time_slot 
         FROM bookings 
-        WHERE user_id = ? AND date >= date('now') 
+        WHERE user_id = %s AND date >= date('now') 
         ORDER BY date, time_slot
     ''', (user_id,))
 
@@ -215,7 +215,7 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
     cursor = conn.cursor()
 
     cursor.execute(
-        'DELETE FROM bookings WHERE id = ? AND user_id = ?',
+        'DELETE FROM bookings WHERE id = %s AND user_id = %s',
         (booking_id, user_id)
     )
 
@@ -230,4 +230,5 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
     
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
 

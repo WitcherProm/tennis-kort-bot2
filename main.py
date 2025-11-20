@@ -1,4 +1,3 @@
-import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -7,11 +6,6 @@ from datetime import datetime
 import database
 import os
 from dotenv import load_dotenv
-
-import database
-
-# Инициализируем при первом запросе
-database.init_tables()
 
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
@@ -120,123 +114,216 @@ async def check_telegram():
 # API endpoints
 @app.get("/api/slots")
 async def get_slots(date: str = Query(...)):
-    conn = database.db.get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
 
-    time_slots = generate_time_slots()
-    court_types = ['rubber', 'hard']
-    slots = []
+        time_slots = generate_time_slots()
+        court_types = ['rubber', 'hard']
+        slots = []
 
-    for court_type in court_types:
-        for time_slot in time_slots:
-            cursor.execute('''
-                SELECT b.id, u.first_name 
-                FROM bookings b 
-                LEFT JOIN users u ON b.user_id = u.user_id 
-                WHERE b.court_type = %s AND b.date = %s AND b.time_slot = %s
-            ''', (court_type, date, time_slot))
+        for court_type in court_types:
+            for time_slot in time_slots:
+                cursor.execute('''
+                    SELECT b.id, u.first_name 
+                    FROM bookings b 
+                    LEFT JOIN users u ON b.user_id = u.user_id 
+                    WHERE b.court_type = %s AND b.date = %s AND b.time_slot = %s
+                ''', (court_type, date, time_slot))
 
-            booking = cursor.fetchone()
+                booking = cursor.fetchone()
 
-            if booking:
-                slots.append({
-                    "court_type": court_type,
-                    "date": date,
-                    "time_slot": time_slot,
-                    "is_available": False,
-                    "booked_by": booking['first_name'],
-                    "booking_id": booking['id']
-                })
-            else:
-                slots.append({
-                    "court_type": court_type,
-                    "date": date,
-                    "time_slot": time_slot,
-                    "is_available": True,
-                    "booked_by": None,
-                    "booking_id": None
-                })
+                if booking:
+                    slots.append({
+                        "court_type": court_type,
+                        "date": date,
+                        "time_slot": time_slot,
+                        "is_available": False,
+                        "booked_by": booking['first_name'],
+                        "booking_id": booking['id']
+                    })
+                else:
+                    slots.append({
+                        "court_type": court_type,
+                        "date": date,
+                        "time_slot": time_slot,
+                        "is_available": True,
+                        "booked_by": None,
+                        "booking_id": None
+                    })
 
-    conn.close()
-    return slots
+        conn.close()
+        return slots
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.post("/api/book")
 async def create_booking(booking_data: dict):
-    conn = database.db.get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
 
-    # Проверяем запись на этот день
-    cursor.execute(
-        'SELECT id FROM bookings WHERE user_id = %s AND date = %s',
-        (booking_data['user_id'], booking_data['date'])
-    )
-    if cursor.fetchone():
-        raise HTTPException(status_code=400, detail="Вы уже записаны на этот день")
+        # Проверяем запись на этот день
+        cursor.execute(
+            'SELECT id FROM bookings WHERE user_id = %s AND date = %s',
+            (booking_data['user_id'], booking_data['date'])
+        )
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Вы уже записаны на этот день")
 
-    # Проверяем свободен ли слот
-    cursor.execute(
-        'SELECT id FROM bookings WHERE court_type = %s AND date = %s AND time_slot = %s',
-        (booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
-    )
-    if cursor.fetchone():
-        raise HTTPException(status_code=400, detail="Это время уже занято")
+        # Проверяем свободен ли слот
+        cursor.execute(
+            'SELECT id FROM bookings WHERE court_type = %s AND date = %s AND time_slot = %s',
+            (booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
+        )
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Это время уже занято")
 
-    # Сохраняем пользователя
-    cursor.execute(
-        'INSERT OR IGNORE INTO users (user_id, first_name) VALUES (%s, %s)',
-        (booking_data['user_id'], booking_data['first_name'])
-    )
+        # Сохраняем пользователя
+        cursor.execute(
+            'INSERT INTO users (user_id, first_name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name',
+            (booking_data['user_id'], booking_data['first_name'])
+        )
 
-    # Создаем запись
-    cursor.execute(
-        'INSERT INTO bookings (user_id, court_type, date, time_slot) VALUES (%s, %s, %s, %s)',
-        (booking_data['user_id'], booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
-    )
+        # Создаем запись
+        cursor.execute(
+            'INSERT INTO bookings (user_id, court_type, date, time_slot) VALUES (%s, %s, %s, %s)',
+            (booking_data['user_id'], booking_data['court_type'], booking_data['date'], booking_data['time_slot'])
+        )
 
-    conn.commit()
-    conn.close()
+        conn.commit()
+        conn.close()
 
-    return {"success": True, "message": "Запись успешно создана!"}
+        return {"success": True, "message": "Запись успешно создана!"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.get("/api/my-bookings")
 async def get_my_bookings(user_id: int = Query(...)):
-    conn = database.db.get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
 
-    cursor.execute('''
-        SELECT id, court_type, date, time_slot 
-        FROM bookings 
-        WHERE user_id = %s AND date >= date('now') 
-        ORDER BY date, time_slot
-    ''', (user_id,))
+        cursor.execute('''
+            SELECT id, court_type, date, time_slot 
+            FROM bookings 
+            WHERE user_id = %s AND date >= date('now') 
+            ORDER BY date, time_slot
+        ''', (user_id,))
 
-    bookings = cursor.fetchall()
-    conn.close()
+        bookings = cursor.fetchall()
+        conn.close()
 
-    return [dict(booking) for booking in bookings]
+        return [dict(booking) for booking in bookings]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 @app.delete("/api/booking/{booking_id}")
 async def cancel_booking(booking_id: int, user_id: int = Query(...)):
-    conn = database.db.get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
 
-    cursor.execute(
-        'DELETE FROM bookings WHERE id = %s AND user_id = %s',
-        (booking_id, user_id)
-    )
+        cursor.execute(
+            'DELETE FROM bookings WHERE id = %s AND user_id = %s',
+            (booking_id, user_id)
+        )
 
-    if cursor.rowcount == 0:
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+
+        conn.commit()
         conn.close()
-        raise HTTPException(status_code=404, detail="Запись не найдена")
 
-    conn.commit()
-    conn.close()
+        return {"success": True, "message": "Запись отменена"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    return {"success": True, "message": "Запись отменена"}
+# Новые эндпоинты для диагностики
+@app.get("/api/init-db")
+async def init_database():
+    """Ручная инициализация базы данных"""
+    try:
+        database.db.init_db()
+        return {"status": "success", "message": "Database tables created"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
-    if __name__ == "__main__":
-        port = int(os.getenv("PORT", 8080))
-        uvicorn.run(app, host="0.0.0.0", port=port)
+@app.get("/api/check-tables")
+async def check_tables():
+    """Проверка существования таблиц"""
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
+        
+        # Проверяем существование таблиц
+        cursor.execute("""
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name IN ('users', 'bookings')
+        """)
+        
+        tables = cursor.fetchall()
+        conn.close()
+        
+        existing_tables = [table['table_name'] for table in tables]
+        
+        return {
+            "status": "success",
+            "existing_tables": existing_tables,
+            "tables_found": len(existing_tables),
+            "needs_init": len(existing_tables) < 2
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
+@app.get("/api/db-status")
+async def db_status():
+    """Проверка статуса базы данных"""
+    try:
+        conn = database.db.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT NOW() as current_time")
+        result = cursor.fetchone()
+        conn.close()
+        return {
+            "status": "connected",
+            "database_time": result['current_time'],
+            "message": "✅ Database is working!"
+        }
+    except Exception as e:
+        return {
+            "status": "disconnected", 
+            "error": str(e),
+            "help": "Please check DATABASE_URL in Vercel environment variables"
+        }
 
+@app.get("/api/env-check")
+async def env_check():
+    """Проверка переменных окружения"""
+    return {
+        "has_database_url": bool(os.getenv('DATABASE_URL')),
+        "has_bot_token": bool(os.getenv('BOT_TOKEN')),
+        "database_url_preview": os.getenv('DATABASE_URL', '')[:30] + '...' if os.getenv('DATABASE_URL') else 'NOT SET'
+    }
 
+@app.get("/api/health")
+async def health_check():
+    """Общая проверка здоровья приложения"""
+    return {
+        "status": "healthy",
+        "service": "Tennis Court Booking API",
+        "timestamp": datetime.now().isoformat()
+    }
+
+# Для локального запуска
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

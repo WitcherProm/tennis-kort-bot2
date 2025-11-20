@@ -5,7 +5,7 @@ from psycopg2.extras import RealDictCursor
 class Database:
     def __init__(self):
         # Получи connection string из переменных окружения Vercel
-        self.conn_string = os.getenv('https://ezryxuljbfnzzxjqqztx.supabase.co')
+        self.conn_string = os.getenv('DATABASE_URL')
         self.init_db()
     
     def get_connection(self):
@@ -38,3 +38,4 @@ class Database:
         conn.close()
 
 db = Database()
+

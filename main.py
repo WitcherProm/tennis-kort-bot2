@@ -8,6 +8,11 @@ import database
 import os
 from dotenv import load_dotenv
 
+import database
+
+# Инициализируем при первом запросе
+database.init_tables()
+
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -232,5 +237,6 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
     if __name__ == "__main__":
         port = int(os.getenv("PORT", 8080))
         uvicorn.run(app, host="0.0.0.0", port=port)
+
 
 

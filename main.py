@@ -24,7 +24,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 def generate_time_slots():
     slots = []
     for hour in range(6, 24):
@@ -38,55 +37,122 @@ async def read_root():
     with open("static/index.html", "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
-# API endpoints остаются без изменений
+@app.get("/check-telegram")
+async def check_telegram():
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Telegram WebApp Checker</title>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            .success { color: green; }
+            .error { color: red; }
+            .info { background: #f0f0f0; padding: 10px; border-radius: 5px; }
+        </style>
+    </head>
+    <body>
+        <h1>🔍 Telegram WebApp Checker</h1>
+        <div id="status">Checking...</div>
+        <div id="details" class="info" style="margin-top: 20px;"></div>
+        
+        <script>
+            function checkTelegram() {
+                const status = document.getElementById('status');
+                const details = document.getElementById('details');
+                
+                // Проверяем Telegram WebApp
+                if (window.Telegram?.WebApp) {
+                    const tg = window.Telegram.WebApp;
+                    const user = tg.initDataUnsafe?.user;
+                    
+                    status.innerHTML = '<h2 class="success">✅ Telegram WebApp НАЙДЕН!</h2>';
+                    details.innerHTML = `
+                        <h3>Данные WebApp:</h3>
+                        <strong>Версия:</strong> ${tg.version || 'N/A'}<br>
+                        <strong>Платформа:</strong> ${tg.platform || 'N/A'}<br>
+                        <strong>Init Data:</strong> ${tg.initData ? 'Есть' : 'Нет'}<br>
+                        <strong>Пользователь:</strong> ${user ? user.first_name + ' (ID: ' + user.id + ')' : 'Не найден'}
+                    `;
+                    
+                    if (user) {
+                        details.innerHTML += `<br><br><strong>🎉 ВСЕ РАБОТАЕТ! Telegram передает данные пользователя.</strong>`;
+                    }
+                } else {
+                    status.innerHTML = '<h2 class="error">❌ Telegram WebApp НЕ НАЙДЕН</h2>';
+                    
+                    // Ищем все Telegram-подобные объекты
+                    const telegramObjects = Object.keys(window).filter(key => 
+                        key.toLowerCase().includes('telegram') || 
+                        key.toLowerCase().includes('webapp') ||
+                        key.toLowerCase().includes('tg')
+                    );
+                    
+                    details.innerHTML = `
+                        <h3>Диагностика:</h3>
+                        <strong>Найденные объекты:</strong> ${telegramObjects.length > 0 ? telegramObjects.join(', ') : 'Нет'}<br>
+                        <strong>URL:</strong> ${window.location.href}<br>
+                        <strong>Реферер:</strong> ${document.referrer || 'Нет'}<br>
+                        <strong>User Agent:</strong> ${navigator.userAgent}<br><br>
+                        <strong>Возможные причины:</strong><br>
+                        - Открываете не через кнопку меню в боте<br>
+                        - Бот не настроен для WebApp<br>
+                        - Домен не добавлен в разрешенные<br>
+                        - Проблема с кэшем Telegram
+                    `;
+                }
+            }
+            
+            // Запускаем проверку
+            setTimeout(checkTelegram, 100);
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+# API endpoints
 @app.get("/api/slots")
 async def get_slots(date: str = Query(...)):
-    try:
-        print(f"📅 Getting slots for date: {date}")
-        conn = database.db.get_connection()
-        cursor = conn.cursor()
+    conn = database.db.get_connection()
+    cursor = conn.cursor()
 
-        time_slots = generate_time_slots()
-        court_types = ['rubber', 'hard']
-        slots = []
+    time_slots = generate_time_slots()
+    court_types = ['rubber', 'hard']
+    slots = []
 
-        for court_type in court_types:
-            for time_slot in time_slots:
-                cursor.execute('''
-                    SELECT b.id, u.first_name 
-                    FROM bookings b 
-                    LEFT JOIN users u ON b.user_id = u.user_id 
-                    WHERE b.court_type = ? AND b.date = ? AND b.time_slot = ?
-                ''', (court_type, date, time_slot))
+    for court_type in court_types:
+        for time_slot in time_slots:
+            cursor.execute('''
+                SELECT b.id, u.first_name 
+                FROM bookings b 
+                LEFT JOIN users u ON b.user_id = u.user_id 
+                WHERE b.court_type = ? AND b.date = ? AND b.time_slot = ?
+            ''', (court_type, date, time_slot))
 
-                booking = cursor.fetchone()
+            booking = cursor.fetchone()
 
-                if booking:
-                    slots.append({
-                        "court_type": court_type,
-                        "date": date,
-                        "time_slot": time_slot,
-                        "is_available": False,
-                        "booked_by": booking['first_name'],
-                        "booking_id": booking['id']
-                    })
-                else:
-                    slots.append({
-                        "court_type": court_type,
-                        "date": date,
-                        "time_slot": time_slot,
-                        "is_available": True,
-                        "booked_by": None,
-                        "booking_id": None
-                    })
+            if booking:
+                slots.append({
+                    "court_type": court_type,
+                    "date": date,
+                    "time_slot": time_slot,
+                    "is_available": False,
+                    "booked_by": booking['first_name'],
+                    "booking_id": booking['id']
+                })
+            else:
+                slots.append({
+                    "court_type": court_type,
+                    "date": date,
+                    "time_slot": time_slot,
+                    "is_available": True,
+                    "booked_by": None,
+                    "booking_id": None
+                })
 
-        conn.close()
-        print(f"✅ Returned {len(slots)} slots")
-        return slots
-        
-    except Exception as e:
-        print(f"❌ Error in /api/slots: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    conn.close()
+    return slots
 
 @app.post("/api/book")
 async def create_booking(booking_data: dict):
@@ -164,7 +230,7 @@ async def cancel_booking(booking_id: int, user_id: int = Query(...)):
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8080)
-
-
+    import os
+    
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
